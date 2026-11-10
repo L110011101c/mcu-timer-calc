@@ -270,5 +270,32 @@ class TestCli(unittest.TestCase):
                 tc.main(["--fosc", "12MHz", "--mode", "1", "--prescaler", "12T"])
 
 
+class TestErrorNormalization(unittest.TestCase):
+    """非法模式与非有限时间必须报 CalcError，而非 KeyError/OverflowError。"""
+
+    def test_invalid_mode_raises_calc_error(self):
+        for bad_mode in (3, -1, 99):
+            with self.subTest(mode=bad_mode):
+                with self.assertRaises(tc.CalcError):
+                    tc.calc_from_time(12e6, "12T", bad_mode, 1e-3)
+                with self.assertRaises(tc.CalcError):
+                    tc.calc_from_init(12e6, "12T", bad_mode, 100)
+
+    def test_non_finite_time_raises_calc_error(self):
+        for bad in (float("inf"), float("-inf"), float("nan")):
+            with self.subTest(target=bad):
+                with self.assertRaises(tc.CalcError):
+                    tc.calc_from_time(12e6, "12T", 1, bad)
+
+    def test_cli_inf_time_exits_2_without_traceback(self):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = tc.main(
+                ["--fosc", "12MHz", "--mode", "1", "--prescaler", "12T", "--time", "inf"]
+            )
+        self.assertEqual(code, 2)
+        self.assertIn("错误", err.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
