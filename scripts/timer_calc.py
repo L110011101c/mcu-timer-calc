@@ -121,7 +121,10 @@ def encode_init(mode: int, init: int) -> tuple[int, int]:
 
 
 def _base_result(fosc: float, prescaler: str, mode: int) -> dict:
-    name, bits, desc = TIMER_MODES[mode]
+    try:
+        name, bits, desc = TIMER_MODES[mode]
+    except KeyError:
+        raise CalcError(f"不支持的定时器方式 {mode!r}，支持 0 / 1 / 2")
     cyc = machine_cycle(fosc, prescaler)
     return {
         "fosc": fosc,
@@ -153,6 +156,8 @@ def _finalize(result: dict, init: int, count: int, th: int, tl: int) -> dict:
 
 def calc_from_time(fosc: float, prescaler: str, mode: int, target_time: float) -> dict:
     """由目标定时时间计算定时器初值。"""
+    if not math.isfinite(target_time):
+        raise CalcError(f"目标定时时间必须为有限数值，当前 {target_time!r}")
     result = _base_result(fosc, prescaler, mode)
     cyc = result["machine_cycle"]
     full = result["count_max"]
